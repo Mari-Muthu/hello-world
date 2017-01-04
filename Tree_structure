@@ -1,0 +1,330 @@
+<?php 
+error_reporting(~E_ALL); 
+include_once("db_connect.php");
+//include_once("functions.php");
+$servername = "localhost";
+$username = "root";
+$password = "";
+$dbname = "codeigniter";
+$conn = mysql_connect($servername, $username, $password) or die("Connection failed: " . mysqli_connect_error());
+if(! $conn )
+{
+  die('Could not connect: ' . mysql_error());
+}
+//echo 'Connected successfully';
+mysql_select_db( 'codeigniter' );
+
+function createTreeView($parent, $menu) {
+   $html = "";
+   $parent_id = $parent;
+  //$conn = mysqli_connect($servername, $username, $password, $dbname) or die("Connection failed: " . mysqli_connect_error());  
+   if (isset($menu['parents'][$parent])) {
+	   
+      $html .= "<ol class='tree'>";
+       foreach ($menu['parents'][$parent] as $itemId) {
+          if(!isset($menu['parents'][$itemId])) {
+			  
+			  $id =$menu['items'][$itemId]['id'];
+			 $res = "SELECT b.parent_id,b.doc_file_name,b.doc_name FROM menus as a,documents  as b WHERE a.id = b.parent_id AND b.parent_id=".$id."";
+			 $sql = mysql_query($res);
+			$result =  mysql_fetch_array($sql);
+			$id = $result['parent_id'];
+			
+			
+             $html .= "<li>";
+			 $html .= "<label for='subfolder2'>";
+			 
+			 //$html .= "<a href='".$menu['items'][$itemId]['link']."'>".$menu['items'][$itemId]['label']."</a>";
+		
+			 $html .= "<a href='#'>".$menu['items'][$itemId]['label']."</a>";
+			  if($id == $menu['items'][$itemId]['id'])
+			  {
+				  $doc = $result['doc_file_name'];
+				  $doc_name = $result['doc_name'];
+				  $html .= "<ol class='tree'>";
+				  $html .= "<li>";
+				  $html .= "<label for='subfolder2'>";
+				  $html .= "<a href='documents/$doc' target='_blank'>".$doc_name."</a>";
+				  $html .= "</label> <input type='checkbox' name='subfolder2'/></li>";
+				  $html .= "</ol>";
+				  
+			  }
+			 $html .= "<span style='margin-left:10%'>"; 
+			 $html .= "<a data-toggle='modal'  data-target='#add_sub_groups' onclick='sub_group_id(".$menu['items'][$itemId]['id'].");'>ADD Sub</a></span>";
+			  
+			    
+			 if($parent_id > 0) { 
+			 $html .= "<span style='margin-left:10px'>";
+			 $html .= "<a data-toggle='modal'  data-target='#add_sub_groups_documents' onclick='sub_group_doc_id(".$menu['items'][$itemId]['id'].");'>Add Documents</a>";
+			 $html .= "</span>";
+			 }
+			 $html .= "</label> <input type='checkbox' name='subfolder2'/></li>";
+          }
+          if(isset($menu['parents'][$itemId])) {
+			  
+	   		 //$row_cnt = mysql_num_rows($sql);	
+			  $id =$menu['items'][$itemId]['id'];
+			 $res = "SELECT b.parent_id,b.doc_file_name,b.doc_name FROM menus as a,documents  as b WHERE a.id = b.parent_id AND b.parent_id=".$id."";
+			 $sql = mysql_query($res);
+			$result =  mysql_fetch_array($sql);
+			$id = $result['parent_id'];		  
+			 
+             $html .= "<li><label for='subfolder'>";
+			// $html .= "<a href='".$menu['items'][$itemId]['link']."'>".$menu['items'][$itemId]['label']."</a>";
+			 $html .= "<a href='#'>".$menu['items'][$itemId]['label']."</a>";
+			 if($id == $menu['items'][$itemId]['id'])
+			  {
+				  $doc = $result['doc_file_name'];
+				  $doc_name = $result['doc_name'];
+				  $html .= "<ol class='tree'>";
+				  $html .= "<li>";
+				  $html .= "<label for='subfolder2'>";
+				  $html .= "<a href='documents/$doc' target='_blank'>".$doc_name."</a>";
+				  $html .= "</label> <input type='checkbox' name='subfolder2'/></li>";
+				  $html .= "</ol>";
+				  
+			  }
+			
+			 $html .= "<span style='margin-left:10%'>";
+			 $html .= "<a data-toggle='modal'  data-target='#add_sub_groups'  onclick='sub_group_id(".$menu['items'][$itemId]['id'].");'>ADD Sub</a></span>";
+			 
+			 if($parent_id > 0) { 
+			 $html .= "<span style='margin-left:10px'>";
+			 $html .= "<a data-toggle='modal'  data-target='#add_sub_groups_documents' onclick='sub_group_doc_id(".$menu['items'][$itemId]['id'].");'>Add Documents</a></span>";
+			 }
+			 $html .= "</label> <input type='checkbox' name='subfolder2'/>";
+             $html .= createTreeView($itemId, $menu);
+             $html .= "</li>";
+          }
+       }
+       $html .= "</ol>";
+   }
+   return $html;
+}
+
+if($_POST['submit'] == 'ADD'){
+	$g_name = $_POST['group_name'];
+	$ins = "INSERT INTO menus(label,parent) VALUES ('".$g_name."','0')";
+	$query = mysql_query($ins);
+	if($query)
+	{
+		echo "Successfully Added";
+	}
+}
+
+if($_POST['submit'] == 'ADD SUB'){
+	$parent_id = $_POST['subgroups_id'];
+	$sub_group_name = $_POST['sub_group_name'];
+	$ins = "INSERT INTO menus(label,parent) VALUES ('".$sub_group_name."','".$parent_id."')";
+	$query = mysql_query($ins);
+	if($query)
+	{
+		echo "Successfully Added Sub Groups";
+	}
+}
+
+if($_POST['submit'] == 'ADD DOC'){
+	
+	$parent_id = $_POST['subgroups_doc_id'];
+	$doc_file_name = $_FILES["doc_file_name"]["name"];
+	$doc_name = $_POST['doc_name'];
+	$ext = end((explode(".", $doc_file_name)));	
+	$dir = "documents/";
+	$target_file = $dir . basename($_FILES["doc_file_name"]["name"]);
+	if($ext == 'pdf')
+	{
+		if(move_uploaded_file($_FILES["doc_file_name"]["tmp_name"], $dir . $_FILES["doc_file_name"]["name"]))
+		{ 
+		$ins = "INSERT INTO documents(doc_name,doc_type,doc_file_name,parent_id) VALUES ('".$doc_name."','".$ext."','".$doc_file_name."','".$parent_id."')";
+		$query = mysql_query($ins);
+		if($query)
+		{
+			echo "Successfully Added Documents in Groups";
+		}
+		}
+	} else
+	{
+		echo "Upload Only pdf documments";
+	}
+		
+	//
+//	
+//	
+//	{
+//		
+//	}
+}
+
+
+
+?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Demo Tree</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link href='http://fonts.googleapis.com/css?family=Marcellus' rel='stylesheet' type='text/css'>
+<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+<link rel="stylesheet" href="style.css" type="text/css" media="all">
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.js"></script>
+<script type="text/javascript" src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+
+<body>
+<div class="container">
+	<h2>Create Dynamic Tree</h2>
+    <a data-toggle="modal"  data-target="#add_groups" class="btn btn-primary">Add Groups</a>	
+	<?php
+	$sql = "SELECT id, label, link, parent FROM menus ORDER BY parent, sort, label";
+	$result = mysql_query($sql);
+	// Create an array to conatin a list of items and parents
+	$menus = array(
+		'items' => array(),
+		'parents' => array()
+	);
+	// Builds the array lists with data from the SQL result
+	while ($items = mysql_fetch_assoc($result)) {
+		// Create current menus item id into array
+		$menus['items'][$items['id']] = $items;
+		// Creates list of all items with children
+		$menus['parents'][$items['parent']][] = $items['id'];
+	}
+	// Print all tree view menus 
+	echo createTreeView(0, $menus);
+	?>			
+</div>
+
+
+<div id="add_groups" class="modal fade" role="dialog">
+  <div class="modal-dialog">
+ <form action="" method="post" >
+    <!-- Modal content-->
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title">Add Groups</h4>
+      </div>
+      <div id="message"></div>
+     
+      <div class="modal-body">
+      
+        <input type="text" name="group_name" id="group_name" class="form-control" placeholder="Enter group name" required />
+       
+        
+      </div>
+      <div class="modal-footer">
+      <input type="submit" name="submit" id="submit" class="btn btn-primary" value="ADD" />
+     	
+        <div class="btn btn-default" data-dismiss="modal">Cancel</div>
+      </div>
+     
+    </div>
+ </form>
+  </div>
+</div>
+<div id="add_sub_groups" class="modal fade" role="dialog">
+  <div class="modal-dialog">
+<form action="" method="post" >
+    <!-- Modal content-->
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title">Add Groups</h4>
+      </div>
+      <div id="message"></div>
+      <input type="hidden" name="subgroups_id" id="subgroups_id" >
+      <div class="modal-body">
+      
+         
+        <input type="text" name="sub_group_name" id="sub_group_name" class="form-control" placeholder="Enter Sub group name" required />
+       
+        
+      </div>
+      <div class="modal-footer">
+       <input type="submit" name="submit" id="submit" class="btn btn-primary" value="ADD SUB" />
+     	 <!--<button type="button" class="btn btn-primary" data-dismiss="modal" onClick="add_sub_groups();">ADD</button>-->
+        <div class="btn btn-default" data-dismiss="modal">Cancel</div>
+      </div>
+      
+    </div>
+</form>
+  </div>
+</div>
+<div id="add_sub_groups_documents" class="modal fade" role="dialog">
+  <div class="modal-dialog">
+<form action="" method="post" enctype="multipart/form-data" >
+    <!-- Modal content-->
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title">Add Documents</h4>
+      </div>
+      <div id="message"></div>
+      <input type="hidden" name="subgroups_doc_id" id="subgroups_doc_id" >
+      <div class="modal-body">
+     
+  <div class="form-group">
+    <label for="exampleInputEmail1">Docments Name</label>
+    <input type="text" class="form-control" id="doc_name" name="doc_name" placeholder="Enter Document name" required>
+  </div>  
+  <div class="form-group">
+    <label for="exampleInputFile">File input</label>
+    <input type="file" id="doc_file_name" name="doc_file_name" required>
+    <p class="help-block">Example block-level help text here.</p>
+  </div>      
+      </div>
+      <div class="modal-footer">
+       <input type="submit" name="submit" id="submit" class="btn btn-primary" value="ADD DOC" />
+     	 <!--<button type="button" class="btn btn-primary" data-dismiss="modal" onClick="add_sub_groups();">ADD</button>-->
+        <div class="btn btn-default" data-dismiss="modal">Cancel</div>
+      </div>
+      
+    </div>
+</form>
+  </div>
+</div>
+<script>
+function sub_group_doc_id(id)
+{
+	$('#subgroups_doc_id').val(id);
+}
+function sub_group_id(id)
+{
+	$('#subgroups_id').val(id);
+}
+function add_groups()
+{
+	var name = $('#group_name').val();
+	
+	if( name == '')
+	{
+		//var $messageDiv = $('#message');
+//		$messageDiv.show().html('Please Enter the name'); 	
+		alert("Pleasse Enter the name");	
+	} else
+	{
+	$.ajax({
+type: "POST",
+url: "functions.php",
+dataType: 'json',
+data: { group_name: name,action:add_groups },
+success: function(data){
+	console.log(data);
+                    if(data == 1)
+					{
+						//alert("Sucessfully Created Groups");
+						location.reload();						
+						
+					} else
+					{
+						alert("Registration Failed");
+					}
+                }
+                
+});
+	}
+}
+
+</script>
+
+</body>
+</html>
